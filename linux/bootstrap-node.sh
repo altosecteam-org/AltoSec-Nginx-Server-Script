@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Bootstrap a fresh Debian/Ubuntu node as a GitHub Actions self-hosted runner
 # for the Altosec LoadBalancer. Installs Docker (to build + deploy the image),
-# downloads and registers the runner, and runs it as a systemd service
-# (starts on boot, auto-restarts). Safe to re-run (re-registers with --replace).
+# opens the host firewall for 80/443/8765 (ufw/firewalld), downloads and registers
+# the runner, and runs it as a systemd service (starts on boot, auto-restarts).
+# Safe to re-run (re-registers with --replace). NOTE: cloud security groups are
+# outside the OS and must be opened separately in your provider's console.
 #
 # Run ON the node as root:
 #   sudo ./bootstrap-node.sh --token <registration-token> --runner-name proxy-node-01
@@ -21,9 +23,26 @@ RUNNER_NAME=""
 RUNNER_LABELS=""
 RUNNER_USER="gha-runner"
 RUNNER_VERSION=""   # empty → resolve latest from the GitHub API
+OPEN_FIREWALL=1
+FIREWALL_PORTS="80 443 8765"   # 80/443 = edge, 8765 = control API
 
 log() { echo ">>> $*"; }
 err() { echo "ERROR: $*" >&2; exit 1; }
+
+open_firewall() {
+  if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -qi "Status: active"; then
+    log "Opening host firewall (ufw): ${FIREWALL_PORTS}/tcp …"
+    for p in $FIREWALL_PORTS; do ufw allow "${p}/tcp" >/dev/null 2>&1 || true; done
+  elif command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state >/dev/null 2>&1; then
+    log "Opening host firewall (firewalld): ${FIREWALL_PORTS}/tcp …"
+    for p in $FIREWALL_PORTS; do firewall-cmd --permanent --add-port="${p}/tcp" >/dev/null 2>&1 || true; done
+    firewall-cmd --reload >/dev/null 2>&1 || true
+  else
+    log "No active host firewall (ufw/firewalld) detected — nothing to open."
+  fi
+  log "NOTE: cloud security groups are OUTSIDE the OS. If the VM still refuses"
+  log "      external connections, open TCP ${FIREWALL_PORTS} in your cloud console."
+}
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -33,6 +52,8 @@ while [ $# -gt 0 ]; do
     -l|--labels)       RUNNER_LABELS="${2:-}"; shift 2;;
     --user)            RUNNER_USER="${2:-}"; shift 2;;
     --version)         RUNNER_VERSION="${2:-}"; shift 2;;
+    --firewall-ports)  FIREWALL_PORTS="${2:-}"; shift 2;;
+    --no-firewall)     OPEN_FIREWALL=0; shift;;
     -h|--help)         awk 'NR==1{next} /^#/{sub(/^# ?/,"");print;next} {exit}' "$0"; exit 0;;
     *) err "Unknown option: $1 (use --help)";;
   esac
@@ -61,6 +82,10 @@ if ! command -v docker >/dev/null 2>&1; then
   curl -fsSL https://get.docker.com | sh
 fi
 systemctl enable --now docker 2>/dev/null || true
+
+if [ "$OPEN_FIREWALL" = "1" ]; then
+  open_firewall
+fi
 
 if ! id "$RUNNER_USER" >/dev/null 2>&1; then
   log "Creating runner user '$RUNNER_USER' …"

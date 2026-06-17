@@ -27,8 +27,15 @@ curl -fsSL \
 | `--labels` | | — | Extra runner labels (comma-separated) |
 | `--user` | | `gha-runner` | Local user that runs the runner |
 | `--version` | | latest | Pin a specific runner version |
+| `--firewall-ports` | | `80 443 8765` | Host firewall ports to open (ufw/firewalld) |
+| `--no-firewall` | | — | Skip opening the host firewall |
 
 Re-runnable: re-registers the same name with `--replace`.
+
+> **Firewall:** the script opens 80/443/8765 on the host firewall (ufw or
+> firewalld) if one is active. **Cloud security groups are outside the OS** —
+> if a VM still refuses external connections, open those TCP ports in your cloud
+> provider's console (AWS/GCP/Azure/etc.).
 
 ### From Windows
 
