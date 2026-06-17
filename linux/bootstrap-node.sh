@@ -23,8 +23,7 @@ RUNNER_NAME=""
 RUNNER_LABELS=""
 RUNNER_USER="gha-runner"
 RUNNER_VERSION=""   # empty → resolve latest from the GitHub API
-OPEN_FIREWALL=1
-FIREWALL_PORTS="80 443 8765"   # 80/443 = edge, 8765 = control API
+FIREWALL_PORTS="80 443 8765"   # 80/443 = edge, 8765 = control API (always opened)
 
 log() { echo ">>> $*"; }
 err() { echo "ERROR: $*" >&2; exit 1; }
@@ -52,8 +51,6 @@ while [ $# -gt 0 ]; do
     -l|--labels)       RUNNER_LABELS="${2:-}"; shift 2;;
     --user)            RUNNER_USER="${2:-}"; shift 2;;
     --version)         RUNNER_VERSION="${2:-}"; shift 2;;
-    --firewall-ports)  FIREWALL_PORTS="${2:-}"; shift 2;;
-    --no-firewall)     OPEN_FIREWALL=0; shift;;
     -h|--help)         awk 'NR==1{next} /^#/{sub(/^# ?/,"");print;next} {exit}' "$0"; exit 0;;
     *) err "Unknown option: $1 (use --help)";;
   esac
@@ -83,9 +80,8 @@ if ! command -v docker >/dev/null 2>&1; then
 fi
 systemctl enable --now docker 2>/dev/null || true
 
-if [ "$OPEN_FIREWALL" = "1" ]; then
-  open_firewall
-fi
+# Always open the edge + control-plane ports; this is not optional.
+open_firewall
 
 if ! id "$RUNNER_USER" >/dev/null 2>&1; then
   log "Creating runner user '$RUNNER_USER' …"
