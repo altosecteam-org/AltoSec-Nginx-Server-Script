@@ -30,6 +30,11 @@ curl -fsSL \
 
 Re-runnable: re-registers the same name with `--replace`.
 
+> **Multi-node deploy:** the runner **name is also registered as a label**, so the
+> CI deploy job can target this specific node (`runs-on: [self-hosted, "<name>"]`).
+> Give each node a unique `--runner-name`, then add it to the `DEPLOY_NODES`
+> repository variable in the LoadBalancer repo so deploys fan out to every node.
+
 > **Firewall:** the script always opens TCP 80/443/8765 on the host firewall (ufw
 > or firewalld) if one is active — this is not optional. **Cloud security groups
 > are outside the OS** — if a VM still refuses external connections, open those

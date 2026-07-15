@@ -119,11 +119,13 @@ log "Installing runner OS dependencies …"
 "$RUNNER_HOME/bin/installdependencies.sh"
 
 log "Registering runner '$RUNNER_NAME' with $REPO_URL …"
-label_arg=""
-[ -n "$RUNNER_LABELS" ] && label_arg="--labels $RUNNER_LABELS"
+# Register the runner NAME as a label so CI can target this specific node with
+# runs-on: [self-hosted, "<name>"] and fan out deploys across every node.
+labels="$RUNNER_NAME"
+[ -n "$RUNNER_LABELS" ] && labels="${labels},${RUNNER_LABELS}"
 sudo -u "$RUNNER_USER" bash -c "cd '$RUNNER_HOME' && ./config.sh \
   --url '$REPO_URL' --token '$RUNNER_TOKEN' \
-  --name '$RUNNER_NAME' $label_arg \
+  --name '$RUNNER_NAME' --labels '$labels' \
   --work '_work' --unattended --replace"
 
 log "Installing + starting systemd service …"
