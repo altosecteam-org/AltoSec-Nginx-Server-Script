@@ -76,6 +76,9 @@ apt-get install -y --no-install-recommends curl ca-certificates tar sudo
 
 if ! command -v docker >/dev/null 2>&1; then
   log "Installing Docker Engine + compose plugin …"
+  # Some minimal cloud images ship without these apt dirs; get.docker.com writes
+  # its repo list into sources.list.d and fails if the directory is missing.
+  mkdir -p /etc/apt/sources.list.d /etc/apt/keyrings
   curl -fsSL https://get.docker.com | sh
 fi
 systemctl enable --now docker 2>/dev/null || true
